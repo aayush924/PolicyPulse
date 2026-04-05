@@ -101,3 +101,25 @@ class PolicyCrossRefResponse(BaseModel):
     payers: list[str]
     entries: list[PolicyCrossRefEntry]
     coverage: list[list[bool]]
+
+
+# ── Policy Comparison ─────────────────────────────────────────────────
+
+class ComparePoliciesRequest(BaseModel):
+    drug_name: str
+    payer_names: list[str]
+
+
+class ComparisonItem(BaseModel):
+    payer_name: str
+    covered: bool
+    prior_auth_required: bool
+    step_therapy_required: bool
+    covered_indications: list[str]
+    key_requirements: list[str]
+
+
+class PolicyComparisonResponse(BaseModel):
+    drug_name: str
+    comparisons: list[ComparisonItem]
+    summary: str

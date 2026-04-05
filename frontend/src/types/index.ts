@@ -82,3 +82,20 @@ export interface PolicyCrossRefResponse {
   entries: PolicyCrossRefEntry[];
   coverage: boolean[][];
 }
+
+// ── Policy Comparison ────────────────────────────────────────────────
+
+export interface ComparisonItem {
+  payer_name: string;
+  covered: boolean;
+  prior_auth_required: boolean;
+  step_therapy_required: boolean;
+  covered_indications: string[];
+  key_requirements: string[];
+}
+
+export interface PolicyComparisonResponse {
+  drug_name: string;
+  comparisons: ComparisonItem[];
+  summary: string;
+}

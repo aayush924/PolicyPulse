@@ -5,6 +5,7 @@ import type {
   ConversationDocument,
   SendMessageResponse,
   PolicyCrossRefResponse,
+  PolicyComparisonResponse,
 } from "@/types";
 
 const BASE_URL = "";
@@ -85,6 +86,31 @@ export async function fetchPolicyCrossReference(
   if (!res.ok) {
     throw new Error("Failed to load policy cross-reference");
   }
+  return res.json();
+}
+
+export async function comparePolicies(
+  drugName: string,
+  payerNames: string[],
+  token: string,
+): Promise<PolicyComparisonResponse> {
+  const res = await authFetch(`${BASE_URL}/api/policies/compare`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({
+      drug_name: drugName,
+      payer_names: payerNames,
+    }),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: "Comparison failed" }));
+    throw new Error(err.detail || err.error || "Policy comparison failed");
+  }
+
   return res.json();
 }
 

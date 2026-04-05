@@ -37,6 +37,7 @@ import type { Conversation, PolicyCrossRefResponse } from "@/types";
 import { GlassCard } from "@/components/GlassCard";
 import { GradientText } from "@/components/GradientText";
 import { FAQSection } from "@/components/FAQSection";
+import { PolicyComparison } from "@/components/PolicyComparison";
 
 interface DashboardPageProps {
   token: string;
@@ -888,6 +889,12 @@ export function DashboardPage({
           </motion.p>
         )}
       </motion.section>
+
+      {/* ── Policy Comparison ───────────────────────────────── */}
+      <PolicyComparison
+        token={token}
+        crossRef={crossRef}
+      />
 
       {/* ── FAQ Section ───────────────────────────────────── */}
       <FAQSection onNavigateWithQuestion={onNavigateToChat} />
