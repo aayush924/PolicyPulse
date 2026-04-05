@@ -1,6 +1,6 @@
-import { Activity, LogOut, Search, MessageSquare } from "lucide-react";
+import { Activity, LogOut, LayoutDashboard, MessageSquare } from "lucide-react";
 
-export type AppTab = "search" | "chat";
+export type AppTab = "dashboard" | "chat";
 
 interface HeaderProps {
   email: string;
@@ -21,15 +21,15 @@ export function Header({ email, activeTab, onTabChange, onSignOut }: HeaderProps
 
           <nav className="flex items-center gap-1 bg-slate-100 rounded-lg p-1">
             <button
-              onClick={() => onTabChange("search")}
+              onClick={() => onTabChange("dashboard")}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                activeTab === "search"
+                activeTab === "dashboard"
                   ? "bg-white text-blue-600 shadow-sm"
                   : "text-slate-500 hover:text-slate-700"
               }`}
             >
-              <Search className="w-3.5 h-3.5" />
-              Search
+              <LayoutDashboard className="w-3.5 h-3.5" />
+              Dashboard
             </button>
             <button
               onClick={() => onTabChange("chat")}

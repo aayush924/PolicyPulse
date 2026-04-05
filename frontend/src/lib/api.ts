@@ -4,6 +4,7 @@ import type {
   ConversationDetail,
   ConversationDocument,
   SendMessageResponse,
+  PolicyCrossRefResponse,
 } from "@/types";
 
 const BASE_URL = "";
@@ -72,6 +73,18 @@ export async function ingestPdf(
     throw new Error(err.detail || err.error || "Ingest failed");
   }
 
+  return res.json();
+}
+
+export async function fetchPolicyCrossReference(
+  token: string,
+): Promise<PolicyCrossRefResponse> {
+  const res = await authFetch(`${BASE_URL}/api/policies/cross-reference`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    throw new Error("Failed to load policy cross-reference");
+  }
   return res.json();
 }
 

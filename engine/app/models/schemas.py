@@ -85,3 +85,19 @@ class ConversationDocumentOut(BaseModel):
     conversation_id: str
     filename: str
     created_at: str
+
+
+# ── Policy catalog ────────────────────────────────────────────────────
+
+class PolicyCrossRefEntry(BaseModel):
+    drug_name: str
+    payer_name: str
+    hcpcs_code: str | None = None
+    sources: list[str]
+
+
+class PolicyCrossRefResponse(BaseModel):
+    drugs: list[str]
+    payers: list[str]
+    entries: list[PolicyCrossRefEntry]
+    coverage: list[list[bool]]

@@ -66,3 +66,19 @@ export interface ConversationDocument {
   filename: string;
   created_at: string;
 }
+
+// ── Policy catalog ────────────────────────────────────────────────────
+
+export interface PolicyCrossRefEntry {
+  drug_name: string;
+  payer_name: string;
+  hcpcs_code: string | null;
+  sources: string[];
+}
+
+export interface PolicyCrossRefResponse {
+  drugs: string[];
+  payers: string[];
+  entries: PolicyCrossRefEntry[];
+  coverage: boolean[][];
+}

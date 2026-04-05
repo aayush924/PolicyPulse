@@ -62,6 +62,15 @@ engineProxy.get("/health", async (_req: Request, res: Response): Promise<void> =
   }
 });
 
+engineProxy.get("/policies/cross-reference", async (_req: Request, res: Response): Promise<void> => {
+  try {
+    const engineRes = await fetch(`${ENGINE_URL}/policies/cross-reference`);
+    await forwardJson(engineRes, res);
+  } catch {
+    res.status(502).json({ error: "Engine service unavailable" });
+  }
+});
+
 // ── Chat proxy ───────────────────────────────────────────────────────
 
 engineProxy.get("/chat/conversations", async (req: Request, res: Response): Promise<void> => {

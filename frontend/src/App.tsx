@@ -1,14 +1,19 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { AuthPage } from "@/pages/AuthPage";
-import { SearchPage } from "@/pages/SearchPage";
+import { DashboardPage } from "@/pages/DashboardPage";
 import { ChatPage } from "@/pages/ChatPage";
 import { Header } from "@/components/Header";
 import type { AppTab } from "@/components/Header";
 
 export default function App() {
   const auth = useAuth();
-  const [activeTab, setActiveTab] = useState<AppTab>("search");
+  const [activeTab, setActiveTab] = useState<AppTab>("dashboard");
+  const [chatFocusConversationId, setChatFocusConversationId] = useState<string | null>(null);
+
+  const handleFocusConversationHandled = useCallback(() => {
+    setChatFocusConversationId(null);
+  }, []);
 
   if (auth.loading) {
     return (
@@ -30,10 +35,21 @@ export default function App() {
         onTabChange={setActiveTab}
         onSignOut={auth.signOut}
       />
-      {activeTab === "search" ? (
-        <SearchPage token={auth.token} />
+      {activeTab === "dashboard" ? (
+        <DashboardPage
+          token={auth.token}
+          onGoToChat={() => setActiveTab("chat")}
+          onOpenConversation={(id) => {
+            setChatFocusConversationId(id);
+            setActiveTab("chat");
+          }}
+        />
       ) : (
-        <ChatPage token={auth.token} />
+        <ChatPage
+          token={auth.token}
+          focusConversationId={chatFocusConversationId}
+          onFocusConversationHandled={handleFocusConversationHandled}
+        />
       )}
     </div>
   );

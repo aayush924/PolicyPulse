@@ -29,9 +29,15 @@ import type { Conversation, ChatMessage, ConversationDocument } from "@/types";
 
 interface ChatPageProps {
   token: string;
+  focusConversationId?: string | null;
+  onFocusConversationHandled?: () => void;
 }
 
-export function ChatPage({ token }: ChatPageProps) {
+export function ChatPage({
+  token,
+  focusConversationId,
+  onFocusConversationHandled,
+}: ChatPageProps) {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -72,25 +78,35 @@ export function ChatPage({ token }: ChatPageProps) {
     }
   }
 
-  async function openConversation(id: string) {
-    setActiveId(id);
-    setMessages([]);
-    setDocuments([]);
-    setError("");
-    setLoadingMessages(true);
-    try {
-      const [detail, docs] = await Promise.all([
-        getConversation(id, token),
-        getConversationDocuments(id, token),
-      ]);
-      setMessages(detail.messages);
-      setDocuments(docs);
-    } catch {
-      setError("Failed to load conversation");
-    } finally {
-      setLoadingMessages(false);
-    }
-  }
+  const openConversation = useCallback(
+    async (id: string) => {
+      setActiveId(id);
+      setMessages([]);
+      setDocuments([]);
+      setError("");
+      setLoadingMessages(true);
+      try {
+        const [detail, docs] = await Promise.all([
+          getConversation(id, token),
+          getConversationDocuments(id, token),
+        ]);
+        setMessages(detail.messages);
+        setDocuments(docs);
+      } catch {
+        setError("Failed to load conversation");
+      } finally {
+        setLoadingMessages(false);
+      }
+    },
+    [token],
+  );
+
+  useEffect(() => {
+    if (!focusConversationId) return;
+    void openConversation(focusConversationId).finally(() => {
+      onFocusConversationHandled?.();
+    });
+  }, [focusConversationId, openConversation, onFocusConversationHandled]);
 
   async function handleNewChat() {
     setError("");
