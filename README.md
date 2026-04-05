@@ -6,7 +6,7 @@ Patient-facing web app that turns medical benefit drug policies into plain-langu
 
 | Layer | Stack | Role |
 |-------|--------|------|
-| **frontend** | React, Vite, TypeScript, Tailwind, Recharts | Auth UI, payer/drug search, step therapy + checklist |
+| **frontend** | React, Vite, TypeScript, Tailwind, Framer Motion, Three.js (R3F + Drei), Recharts | Auth UI, 3D dashboard, payer/drug search, step therapy + checklist |
 | **gateway** | Node.js, Express, Supabase Auth | JWT validation, proxy to engine |
 | **engine** | FastAPI, Docling, Google GenAI, Supabase | `/ingest`, `/query`, normalization + RAG |
 
@@ -55,6 +55,24 @@ From the repo root:
 ```bash
 npm install
 ```
+
+### Frontend dependencies
+
+| Package | Version | Purpose |
+|---------|---------|---------|
+| `react` | ^19.0.0 | UI framework |
+| `react-dom` | ^19.0.0 | React DOM renderer |
+| `three` | ^0.183.2 | 3D rendering engine |
+| `@react-three/fiber` | ^9.5.0 | React renderer for Three.js |
+| `@react-three/drei` | ^10.7.7 | Helpers and abstractions for R3F |
+| `framer-motion` | ^12.38.0 | Animation library (transitions, layout animations, springs) |
+| `@supabase/supabase-js` | ^2.49.1 | Supabase client (auth + data) |
+| `recharts` | ^2.15.0 | Chart components |
+| `lucide-react` | ^0.469.0 | Icon set |
+| `tailwindcss` | ^4.0.0 | Utility-first CSS (dev) |
+| `@tailwindcss/vite` | ^4.0.0 | Tailwind Vite plugin (dev) |
+| `vite` | ^6.0.5 | Build tool (dev) |
+| `typescript` | ~5.6.2 | Type checking (dev) |
 
 ## Run locally
 
