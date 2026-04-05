@@ -1,0 +1,14 @@
+{
+  "name": "policy-pulse",
+  "private": true,
+  "workspaces": ["frontend", "gateway"],
+  "scripts": {
+    "dev:frontend": "npm run dev --workspace=frontend",
+    "dev:gateway": "npm run dev --workspace=gateway",
+    "dev:engine": "cd engine && uvicorn app.main:app --reload --port 8000",
+    "dev": "concurrently \"npm run dev:engine\" \"npm run dev:gateway\" \"npm run dev:frontend\""
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0"
+  }
+}
