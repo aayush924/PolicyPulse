@@ -48,7 +48,7 @@ async def normalize_policy(markdown: str, payer_name: str) -> list[NormalizedPol
     client = _get_client()
 
     response = client.models.generate_content(
-        model="gemini-2.0-flash",
+        model="gemini-2.5-flash",
         contents=NORMALIZATION_PROMPT.format(document=markdown),
         config=genai.types.GenerateContentConfig(
             temperature=0.1,

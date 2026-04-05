@@ -47,3 +47,34 @@ class PolicyResult(BaseModel):
 class QueryResponse(BaseModel):
     results: list[PolicyResult]
     raw_context: str | None = None
+
+
+# ── Chat ──────────────────────────────────────────────────────────────
+
+class ChatMessageOut(BaseModel):
+    id: str
+    conversation_id: str
+    role: str
+    content: str
+    created_at: str
+
+
+class ConversationOut(BaseModel):
+    id: str
+    user_id: str
+    title: str
+    created_at: str
+    updated_at: str
+
+
+class ConversationDetailOut(ConversationOut):
+    messages: list[ChatMessageOut]
+
+
+class SendMessageRequest(BaseModel):
+    content: str
+
+
+class SendMessageResponse(BaseModel):
+    user_message: ChatMessageOut
+    assistant_message: ChatMessageOut

@@ -46,7 +46,7 @@ async def translate_for_patient(
     question = patient_question or "Please explain my coverage options."
 
     response = client.models.generate_content(
-        model="gemini-2.0-flash",
+        model="gemini-2.5-flash",
         contents=PATIENT_ADVOCATE_PROMPT.format(
             drug_name=drug_name,
             payer_name=payer_name,
@@ -59,7 +59,16 @@ async def translate_for_patient(
         ),
     )
 
-    raw_text = response.text.strip()
+    raw_text = (response.text or "").strip()
+    if not raw_text:
+        for candidate in response.candidates or []:
+            for part in candidate.content.parts or []:
+                if part.text:
+                    raw_text = part.text.strip()
+                    break
+            if raw_text:
+                break
+
     if raw_text.startswith("```"):
         raw_text = raw_text.split("\n", 1)[1].rsplit("```", 1)[0].strip()
 

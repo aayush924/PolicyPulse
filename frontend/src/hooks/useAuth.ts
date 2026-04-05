@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import type { AuthState } from "@/types";
-import { signIn as apiSignIn, signUp as apiSignUp } from "@/lib/api";
+import { signIn as apiSignIn, signUp as apiSignUp, setAuthExpiredHandler } from "@/lib/api";
 
 const TOKEN_KEY = "pp_token";
 const USER_KEY = "pp_user";
@@ -12,7 +12,15 @@ export function useAuth() {
     loading: true,
   });
 
+  const signOut = useCallback(() => {
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(USER_KEY);
+    setAuth({ user: null, token: null, loading: false });
+  }, []);
+
   useEffect(() => {
+    setAuthExpiredHandler(signOut);
+
     const token = localStorage.getItem(TOKEN_KEY);
     const userStr = localStorage.getItem(USER_KEY);
     if (token && userStr) {
@@ -25,7 +33,7 @@ export function useAuth() {
     } else {
       setAuth((prev) => ({ ...prev, loading: false }));
     }
-  }, []);
+  }, [signOut]);
 
   const signIn = useCallback(async (email: string, password: string) => {
     const { user, session } = await apiSignIn(email, password);
@@ -44,12 +52,6 @@ export function useAuth() {
       setAuth({ user: { id: user.id, email: user.email }, token, loading: false });
     }
     return { needsConfirmation: !session };
-  }, []);
-
-  const signOut = useCallback(() => {
-    localStorage.removeItem(TOKEN_KEY);
-    localStorage.removeItem(USER_KEY);
-    setAuth({ user: null, token: null, loading: false });
   }, []);
 
   return { ...auth, signIn, signUp, signOut };

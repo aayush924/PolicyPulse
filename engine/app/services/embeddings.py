@@ -14,7 +14,8 @@ def _get_client() -> genai.Client:
 async def generate_embedding(text: str) -> list[float]:
     client = _get_client()
     response = client.models.embed_content(
-        model="text-embedding-004",
+        model="gemini-embedding-001",
         contents=text,
+        config=genai.types.EmbedContentConfig(output_dimensionality=768),
     )
     return response.embeddings[0].values
