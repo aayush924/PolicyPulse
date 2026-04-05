@@ -2,6 +2,7 @@ import type {
   QueryResponse,
   Conversation,
   ConversationDetail,
+  ConversationDocument,
   SendMessageResponse,
 } from "@/types";
 
@@ -161,6 +162,60 @@ export async function sendMessage(
     throw new Error(err.detail || "Failed to send message");
   }
   return res.json();
+}
+
+// ── Document attachment API ───────────────────────────────────────────
+
+export async function uploadConversationDocument(
+  conversationId: string,
+  file: File,
+  token: string,
+): Promise<ConversationDocument> {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const res = await authFetch(
+    `${BASE_URL}/api/chat/conversations/${conversationId}/documents`,
+    {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+      body: formData,
+    },
+  );
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: "Upload failed" }));
+    throw new Error(err.detail || err.error || "Document upload failed");
+  }
+
+  return res.json();
+}
+
+export async function getConversationDocuments(
+  conversationId: string,
+  token: string,
+): Promise<ConversationDocument[]> {
+  const res = await authFetch(
+    `${BASE_URL}/api/chat/conversations/${conversationId}/documents`,
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+  if (!res.ok) throw new Error("Failed to load documents");
+  return res.json();
+}
+
+export async function deleteConversationDocument(
+  conversationId: string,
+  documentId: string,
+  token: string,
+): Promise<void> {
+  const res = await authFetch(
+    `${BASE_URL}/api/chat/conversations/${conversationId}/documents/${documentId}`,
+    {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    },
+  );
+  if (!res.ok) throw new Error("Failed to delete document");
 }
 
 export async function signUp(

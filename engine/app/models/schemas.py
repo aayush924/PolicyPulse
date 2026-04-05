@@ -78,3 +78,10 @@ class SendMessageRequest(BaseModel):
 class SendMessageResponse(BaseModel):
     user_message: ChatMessageOut
     assistant_message: ChatMessageOut
+
+
+class ConversationDocumentOut(BaseModel):
+    id: str
+    conversation_id: str
+    filename: str
+    created_at: str

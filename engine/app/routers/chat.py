@@ -1,11 +1,14 @@
 import logging
+import tempfile
 from datetime import datetime, timezone
+from pathlib import Path
 
-from fastapi import APIRouter, HTTPException, Header
+from fastapi import APIRouter, File, HTTPException, Header, UploadFile
 from postgrest.exceptions import APIError
 
 from app.agents.chat_agent import generate_chat_response, generate_title
 from app.models.schemas import (
+    ConversationDocumentOut,
     ConversationOut,
     ConversationDetailOut,
     ChatMessageOut,
@@ -174,6 +177,147 @@ async def delete_conversation(
         raise HTTPException(status_code=500, detail=f"Database error: {e.message}")
 
 
+_ALLOWED_EXTENSIONS = {".pdf", ".docx", ".txt"}
+_MAX_FILE_SIZE = 20 * 1024 * 1024  # 20 MB
+
+
+def _parse_document(file_bytes: bytes, filename: str) -> str:
+    """Parse an uploaded file to plain text using Docling (PDF/DOCX) or direct read (TXT)."""
+    suffix = Path(filename).suffix.lower()
+
+    if suffix == ".txt":
+        return file_bytes.decode("utf-8", errors="replace")
+
+    with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
+        tmp.write(file_bytes)
+        tmp_path = Path(tmp.name)
+
+    try:
+        from docling.document_converter import DocumentConverter
+        converter = DocumentConverter()
+        result = converter.convert(str(tmp_path))
+        return result.document.export_to_markdown()
+    except Exception as e:
+        raise HTTPException(status_code=422, detail=f"Document parsing failed: {e}")
+    finally:
+        tmp_path.unlink(missing_ok=True)
+
+
+def _require_conversation_ownership(supabase, conversation_id: str, uid: str) -> None:
+    """Raise 404 if the conversation doesn't exist or doesn't belong to the user."""
+    try:
+        conv = (
+            supabase.table("chat_conversations")
+            .select("id")
+            .eq("id", conversation_id)
+            .eq("user_id", uid)
+            .maybe_single()
+            .execute()
+        )
+    except APIError as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {e.message}")
+    if not conv.data:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+
+
+@router.post(
+    "/conversations/{conversation_id}/documents",
+    response_model=ConversationDocumentOut,
+    status_code=201,
+)
+async def upload_document(
+    conversation_id: str,
+    file: UploadFile = File(...),
+    x_user_id: str | None = Header(None),
+):
+    """Upload and attach a document (PDF, DOCX, TXT) to a conversation."""
+    uid = _require_user(x_user_id)
+    supabase = get_supabase()
+    _require_conversation_ownership(supabase, conversation_id, uid)
+
+    suffix = Path(file.filename or "").suffix.lower()
+    if suffix not in _ALLOWED_EXTENSIONS:
+        raise HTTPException(
+            status_code=415,
+            detail=f"Unsupported file type '{suffix}'. Allowed: PDF, DOCX, TXT.",
+        )
+
+    file_bytes = await file.read()
+    if len(file_bytes) > _MAX_FILE_SIZE:
+        raise HTTPException(status_code=413, detail="File too large (max 20 MB)")
+
+    content = _parse_document(file_bytes, file.filename or "document")
+
+    try:
+        result = (
+            supabase.table("conversation_documents")
+            .insert(
+                {
+                    "conversation_id": conversation_id,
+                    "filename": file.filename,
+                    "content": content,
+                }
+            )
+            .execute()
+        )
+    except APIError as e:
+        logger.error("Supabase error inserting document: %s", e)
+        raise HTTPException(status_code=500, detail=f"Database error: {e.message}")
+
+    if not result.data:
+        raise HTTPException(status_code=500, detail="Failed to save document")
+
+    return result.data[0]
+
+
+@router.get(
+    "/conversations/{conversation_id}/documents",
+    response_model=list[ConversationDocumentOut],
+)
+async def list_documents(
+    conversation_id: str,
+    x_user_id: str | None = Header(None),
+):
+    """List documents attached to a conversation."""
+    uid = _require_user(x_user_id)
+    supabase = get_supabase()
+    _require_conversation_ownership(supabase, conversation_id, uid)
+
+    try:
+        result = (
+            supabase.table("conversation_documents")
+            .select("id, conversation_id, filename, created_at")
+            .eq("conversation_id", conversation_id)
+            .order("created_at", desc=False)
+            .execute()
+        )
+    except APIError as e:
+        logger.error("Supabase error listing documents: %s", e)
+        raise HTTPException(status_code=500, detail=f"Database error: {e.message}")
+
+    return result.data or []
+
+
+@router.delete("/conversations/{conversation_id}/documents/{document_id}", status_code=204)
+async def delete_document(
+    conversation_id: str,
+    document_id: str,
+    x_user_id: str | None = Header(None),
+):
+    """Remove a document from a conversation."""
+    uid = _require_user(x_user_id)
+    supabase = get_supabase()
+    _require_conversation_ownership(supabase, conversation_id, uid)
+
+    try:
+        supabase.table("conversation_documents").delete().eq(
+            "id", document_id
+        ).eq("conversation_id", conversation_id).execute()
+    except APIError as e:
+        logger.error("Supabase error deleting document: %s", e)
+        raise HTTPException(status_code=500, detail=f"Database error: {e.message}")
+
+
 @router.post(
     "/conversations/{conversation_id}/messages",
     response_model=SendMessageResponse,
@@ -232,12 +376,32 @@ async def send_message(
     if not policy_context:
         policy_context = _build_seed_context(req.content)
 
+    # Fetch attached documents for this conversation
+    document_context: str | None = None
+    try:
+        doc_rows = (
+            supabase.table("conversation_documents")
+            .select("filename, content")
+            .eq("conversation_id", conversation_id)
+            .order("created_at", desc=False)
+            .execute()
+        )
+        if doc_rows.data:
+            parts = [
+                f"### Document: {doc['filename']}\n\n{doc['content']}"
+                for doc in doc_rows.data
+            ]
+            document_context = "\n\n---\n\n".join(parts)
+    except Exception as e:
+        logger.warning("Failed to fetch conversation documents: %s", e)
+
     # Generate AI response
     try:
         assistant_text = await generate_chat_response(
             conversation_history=conversation_history,
             user_message=req.content,
             policy_context=policy_context,
+            document_context=document_context,
         )
     except Exception as e:
         logger.error("Chat generation failed: %s", e)

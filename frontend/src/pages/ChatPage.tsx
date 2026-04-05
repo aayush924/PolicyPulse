@@ -11,6 +11,9 @@ import {
   AlertCircle,
   PanelLeftClose,
   PanelLeft,
+  Paperclip,
+  FileText,
+  X,
 } from "lucide-react";
 import {
   listConversations,
@@ -18,8 +21,11 @@ import {
   getConversation,
   deleteConversation,
   sendMessage,
+  uploadConversationDocument,
+  getConversationDocuments,
+  deleteConversationDocument,
 } from "@/lib/api";
-import type { Conversation, ChatMessage } from "@/types";
+import type { Conversation, ChatMessage, ConversationDocument } from "@/types";
 
 interface ChatPageProps {
   token: string;
@@ -35,9 +41,12 @@ export function ChatPage({ token }: ChatPageProps) {
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [error, setError] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [documents, setDocuments] = useState<ConversationDocument[]>([]);
+  const [uploading, setUploading] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -66,11 +75,16 @@ export function ChatPage({ token }: ChatPageProps) {
   async function openConversation(id: string) {
     setActiveId(id);
     setMessages([]);
+    setDocuments([]);
     setError("");
     setLoadingMessages(true);
     try {
-      const detail = await getConversation(id, token);
+      const [detail, docs] = await Promise.all([
+        getConversation(id, token),
+        getConversationDocuments(id, token),
+      ]);
       setMessages(detail.messages);
+      setDocuments(docs);
     } catch {
       setError("Failed to load conversation");
     } finally {
@@ -99,9 +113,50 @@ export function ChatPage({ token }: ChatPageProps) {
       if (activeId === id) {
         setActiveId(null);
         setMessages([]);
+        setDocuments([]);
       }
     } catch {
       setError("Failed to delete conversation");
+    }
+  }
+
+  async function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = "";
+
+    let targetId = activeId;
+    if (!targetId) {
+      try {
+        const conv = await createConversation(token);
+        setConversations((prev) => [conv, ...prev]);
+        targetId = conv.id;
+        setActiveId(conv.id);
+      } catch {
+        setError("Failed to create conversation");
+        return;
+      }
+    }
+
+    setUploading(true);
+    setError("");
+    try {
+      const doc = await uploadConversationDocument(targetId, file, token);
+      setDocuments((prev) => [...prev, doc]);
+    } catch (err: any) {
+      setError(err.message || "Failed to upload document");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  async function handleRemoveDocument(docId: string) {
+    if (!activeId) return;
+    try {
+      await deleteConversationDocument(activeId, docId, token);
+      setDocuments((prev) => prev.filter((d) => d.id !== docId));
+    } catch (err: any) {
+      setError(err.message || "Failed to remove document");
     }
   }
 
@@ -115,6 +170,7 @@ export function ChatPage({ token }: ChatPageProps) {
         setConversations((prev) => [conv, ...prev]);
         targetId = conv.id;
         setActiveId(conv.id);
+        setDocuments([]);
       } catch {
         setError("Failed to create conversation");
         return;
@@ -384,37 +440,84 @@ export function ChatPage({ token }: ChatPageProps) {
 
         {/* Input */}
         <div className="border-t border-slate-200 bg-white p-4">
-          <div className="max-w-3xl mx-auto flex items-end gap-3">
-            <textarea
-              ref={inputRef}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Ask about drug coverage, prior auth, step therapy..."
-              rows={1}
-              className="flex-1 resize-none px-4 py-3 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all max-h-32"
-              style={{
-                height: "auto",
-                minHeight: "44px",
-                overflow: input.split("\n").length > 3 ? "auto" : "hidden",
-              }}
-              onInput={(e) => {
-                const t = e.currentTarget;
-                t.style.height = "auto";
-                t.style.height = Math.min(t.scrollHeight, 128) + "px";
-              }}
-            />
-            <button
-              onClick={handleSend}
-              disabled={!input.trim() || sending}
-              className="p-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shrink-0"
-            >
-              {sending ? (
-                <Loader2 className="w-5 h-5 animate-spin" />
-              ) : (
-                <Send className="w-5 h-5" />
-              )}
-            </button>
+          <div className="max-w-3xl mx-auto">
+            {/* Document chips */}
+            {documents.length > 0 && (
+              <div className="flex flex-wrap gap-2 mb-3">
+                {documents.map((doc) => (
+                  <div
+                    key={doc.id}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-700 max-w-xs"
+                  >
+                    <FileText className="w-3.5 h-3.5 shrink-0" />
+                    <span className="truncate">{doc.filename}</span>
+                    <button
+                      onClick={() => handleRemoveDocument(doc.id)}
+                      className="ml-0.5 text-blue-400 hover:text-blue-700 transition-colors shrink-0"
+                      title="Remove document"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="flex items-end gap-2">
+              {/* Hidden file input */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".pdf,.docx,.txt"
+                className="hidden"
+                onChange={handleFileSelect}
+              />
+
+              {/* Attach button */}
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading || sending}
+                className="p-3 text-slate-400 hover:text-blue-600 border border-slate-300 rounded-xl hover:border-blue-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shrink-0"
+                title="Attach document (PDF, DOCX, TXT)"
+              >
+                {uploading ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  <Paperclip className="w-5 h-5" />
+                )}
+              </button>
+
+              <textarea
+                ref={inputRef}
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Ask about drug coverage, prior auth, step therapy..."
+                rows={1}
+                className="flex-1 resize-none px-4 py-3 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all max-h-32"
+                style={{
+                  height: "auto",
+                  minHeight: "44px",
+                  overflow: input.split("\n").length > 3 ? "auto" : "hidden",
+                }}
+                onInput={(e) => {
+                  const t = e.currentTarget;
+                  t.style.height = "auto";
+                  t.style.height = Math.min(t.scrollHeight, 128) + "px";
+                }}
+              />
+              <button
+                onClick={handleSend}
+                disabled={!input.trim() || sending}
+                className="p-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shrink-0"
+              >
+                {sending ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  <Send className="w-5 h-5" />
+                )}
+              </button>
+            </div>
           </div>
           <p className="text-xs text-slate-400 text-center mt-2">
             PolicyPulse Chat uses AI to explain drug coverage policies. Always verify with your insurance provider.

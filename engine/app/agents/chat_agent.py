@@ -28,7 +28,8 @@ You help patients understand their medical insurance drug coverage policies.
 You have access to a database of real drug coverage policies. When policy data is provided below, you MUST use it to answer the patient's question with specific, accurate details from those policies.
 
 Guidelines:
-- ALWAYS answer based on the policy data provided in the "Policy Context" section below.
+- If the user has attached documents, PRIORITIZE answering from those documents above all else.
+- ALWAYS answer based on the policy data provided in the "Policy Context" section below when no document is more relevant.
 - Cite specific details: drug names, payer names, step therapy steps, prior auth requirements, covered indications.
 - Translate clinical or insurance jargon into plain English.
 - Be concise but thorough. Use bullet points or numbered lists when helpful.
@@ -41,8 +42,16 @@ def _build_prompt(
     conversation_history: list[dict],
     user_message: str,
     policy_context: str | None = None,
+    document_context: str | None = None,
 ) -> str:
     parts = [SYSTEM_PROMPT]
+
+    if document_context:
+        parts.append(
+            f"\n--- Attached Documents (PRIORITIZE this content when answering) ---\n"
+            f"{document_context}\n"
+            f"--- End Attached Documents ---"
+        )
 
     if policy_context:
         parts.append(
@@ -70,11 +79,12 @@ async def generate_chat_response(
     conversation_history: list[dict],
     user_message: str,
     policy_context: str | None = None,
+    document_context: str | None = None,
 ) -> str:
     """Generate a chat response using only the current conversation's context."""
     client = _get_client()
 
-    prompt = _build_prompt(conversation_history, user_message, policy_context)
+    prompt = _build_prompt(conversation_history, user_message, policy_context, document_context)
 
     response = client.models.generate_content(
         model="gemini-2.5-flash",

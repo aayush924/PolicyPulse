@@ -59,3 +59,10 @@ export interface SendMessageResponse {
   user_message: ChatMessage;
   assistant_message: ChatMessage;
 }
+
+export interface ConversationDocument {
+  id: string;
+  conversation_id: string;
+  filename: string;
+  created_at: string;
+}

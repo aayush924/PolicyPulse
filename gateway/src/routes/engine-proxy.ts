@@ -122,6 +122,58 @@ engineProxy.delete("/chat/conversations/:id", async (req: Request, res: Response
   }
 });
 
+engineProxy.post("/chat/conversations/:id/documents", async (req: Request, res: Response): Promise<void> => {
+  try {
+    const engineRes = await fetch(
+      `${ENGINE_URL}/chat/conversations/${req.params.id}/documents`,
+      {
+        method: "POST",
+        body: req.body,
+        headers: {
+          "Content-Type": req.headers["content-type"] || "multipart/form-data",
+          "X-User-ID": getUserId(req),
+        },
+        duplex: "half",
+      } as RequestInit & { duplex: "half" },
+    );
+    await forwardJson(engineRes, res);
+  } catch (error) {
+    console.error("Chat upload document proxy error:", error);
+    res.status(502).json({ error: "Engine service unavailable" });
+  }
+});
+
+engineProxy.get("/chat/conversations/:id/documents", async (req: Request, res: Response): Promise<void> => {
+  try {
+    const engineRes = await fetch(
+      `${ENGINE_URL}/chat/conversations/${req.params.id}/documents`,
+      { headers: { "X-User-ID": getUserId(req) } },
+    );
+    await forwardJson(engineRes, res);
+  } catch {
+    res.status(502).json({ error: "Engine service unavailable" });
+  }
+});
+
+engineProxy.delete("/chat/conversations/:id/documents/:docId", async (req: Request, res: Response): Promise<void> => {
+  try {
+    const engineRes = await fetch(
+      `${ENGINE_URL}/chat/conversations/${req.params.id}/documents/${req.params.docId}`,
+      {
+        method: "DELETE",
+        headers: { "X-User-ID": getUserId(req) },
+      },
+    );
+    if (engineRes.status === 204) {
+      res.status(204).end();
+      return;
+    }
+    await forwardJson(engineRes, res);
+  } catch {
+    res.status(502).json({ error: "Engine service unavailable" });
+  }
+});
+
 engineProxy.post("/chat/conversations/:id/messages", async (req: Request, res: Response): Promise<void> => {
   try {
     const engineRes = await fetch(
